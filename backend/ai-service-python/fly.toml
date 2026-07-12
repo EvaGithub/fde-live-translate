@@ -10,9 +10,15 @@ primary_region = 'ord'
 [env]
   PORT = '8000'
 
-# No [http_service] on purpose: this is a PRIVATE service. It has no public IP
-# and is reachable only by the gateway over Fly's 6PN network at
-# fde-live-translate-ai.internal:8000. The browser can never reach it directly.
+# PRIVATE service: no [http_service], so no public IP. Reachable only by the
+# gateway over Fly's 6PN network at fde-live-translate-ai.internal:8000 (the app
+# binds :: / IPv6 for this). The browser can never reach it directly.
+
+# Persistent disk for the SQLite cache. Without this the cache lives inside the
+# container and is wiped on every redeploy; mounted at /data it survives.
+[mounts]
+  source = 'translate_data'
+  destination = '/data'
 
 [[vm]]
   memory = '1gb'
