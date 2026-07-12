@@ -5,7 +5,7 @@
 - **Video demo:** demo.mp4
 - **LLM provider / model:** Anthropic / claude-sonnet-5
 - **Backend target (deployed):** https://fde-live-translate-gateway.fly.dev (public gateway)
-- **AI service (deployed):** private — no public IP; reachable only by the gateway over Fly's 6PN network at `fde-live-translate-ai.internal:8000`
+- **AI service (deployed):** private — no public IP; reachable only by the gateway over Fly's private network at `http://fde-live-translate-ai.flycast` (always-on, auto-wakes)
 
 ## Verdict
 
@@ -78,5 +78,5 @@ Speedup (miss p95 / hit p95): **218×**. These are honest cold-cache numbers —
 
 ### Deployment & run notes
 
-- **Deployed (Fly.io, region `ord`):** the gateway `https://fde-live-translate-gateway.fly.dev` is **public**; the AI service is **private** — it has no public IP and is reached only by the gateway over Fly's 6PN network (`fde-live-translate-ai.internal:8000`), verified by the public AI URL being unreachable while translation still flows through the gateway. Public gateway `/health` nests the private AI's health. The SQLite cache is on a **persistent Fly volume** (`/data`), proven to survive a redeploy. `ANTHROPIC_API_KEY`, `AI_SERVICE_URL`, and `TRANSLATION_DB_PATH` are Fly secrets (never committed).
+- **Deployed (Fly.io, region `ord`):** the gateway `https://fde-live-translate-gateway.fly.dev` is **public**; the AI service is **private** — it has no public IP and is reached only by the gateway over Fly's private network (`http://fde-live-translate-ai.flycast`), verified by the public AI URL being unreachable while translation still flows through the gateway. It's kept always-on (`min_machines_running=1`) and auto-wakes if stopped (verified: stopped the machine, a gateway call restarted it). Public gateway `/health` nests the private AI's health. The SQLite cache is on a **persistent Fly volume** (`/data`), proven to survive a redeploy. `ANTHROPIC_API_KEY`, `AI_SERVICE_URL`, and `TRANSLATION_DB_PATH` are Fly secrets (never committed).
 - **Local run:** one command — `docker compose up --build` — runs both services (private AI + public gateway on 8787). Or run them directly: AI service `uvicorn app:app --port 8000`, gateway `npm start`. The gateway writes `gateway.log`, the AI service writes `ai-service.log`, and a single `X-Request-Id` correlates one request across both (`trace_correlated: true`).

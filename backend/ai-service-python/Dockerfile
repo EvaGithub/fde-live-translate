@@ -10,7 +10,7 @@ COPY . ./
 ENV PORT=8000
 EXPOSE 8000
 
-# Bind IPv6 (dual-stack) so the service is reachable over Fly's 6PN private
-# network (fde-live-translate-ai.internal is IPv6-only). "::" also accepts IPv4,
-# so local Docker / docker-compose still work.
-CMD ["uvicorn", "app:app", "--host", "::", "--port", "8000"]
+# Bind 0.0.0.0: the app sits behind Fly's proxy (private flycast service), which
+# connects to it over private IPv4. This also keeps local Docker / docker-compose
+# working, where the gateway reaches it by service name on the compose network.
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
