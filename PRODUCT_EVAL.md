@@ -4,12 +4,12 @@
 - **Date:** 2026-07-12
 - **Video demo:** demo.mp4
 - **LLM provider / model:** Anthropic / claude-sonnet-5
-- **Backend target (deployed):** https://fde-live-translate-gateway.fly.dev
-- **AI service (deployed):** https://fde-live-translate-ai.fly.dev
+- **Backend target (deployed):** https://fde-live-translate-gateway.fly.dev (public gateway)
+- **AI service (deployed):** private — no public IP; reachable only by the gateway over Fly's 6PN network at `fde-live-translate-ai.internal:8000`
 
 ## Verdict
 
-> This is a shippable Live Translate backend. Both services are deployed on Fly.io and the full request path — browser widget → Node gateway → Python AI service → Claude → two-tier cache — works end to end against a **live public URL**. The strongest part is the caching: a genuine cold-cache benchmark shows a 218× hit/miss speedup and ~$59/mo saved at 500k requests, with all SLAs met and real (non-zero) miss latency and cost. Translation quality on real third-party e-commerce strings is natural Mexican Spanish and reliably preserves prices and SKU/spec codes. The one remaining gap is purely presentational: the on-page widget walkthrough and before/after screenshots live in the video demo (server-side fetch of strict-CSP retail sites like homedepot.com is bot-blocked, which is expected — the Chrome extension handles those in the browser).
+> This is a shippable Live Translate backend with a production-shaped topology. The **public** Node gateway is the only thing the browser can reach; the Python AI service is **private** (no public IP), so the API key, model, and cache live where the internet can't touch them. The full path — browser widget → public gateway → private AI service → Claude → two-tier cache — works end to end against a live public URL. The strongest part is the caching: a genuine cold-cache benchmark shows a 218× hit/miss speedup and ~$59/mo saved at 500k requests, all SLAs met, with real (non-zero) miss latency and cost, and the SQLite cache now lives on a **persistent Fly volume** so it survives redeploys. Translation quality on real third-party e-commerce strings is natural Mexican Spanish and reliably preserves prices and SKU/spec codes. The one remaining gap is purely presentational: the on-page widget walkthrough and before/after screenshots live in the video demo (server-side fetch of strict-CSP retail sites like homedepot.com is bot-blocked, which is expected — the Chrome extension handles those in the browser).
 
 **Rubric score (from `eval/report.json`):** 70 / 70 auto (+ 30 manual)
 
@@ -63,6 +63,11 @@ Speedup (miss p95 / hit p95): **218×**. These are honest cold-cache numbers —
 | Resilience on a real site | Partial | Deployed chain stable; strict-CSP retail sites (homedepot.com) block server-side fetch, handled in-browser by the extension (shown in video). |
 | UX polish | Partial | Backend and widget behavior correct; the polished on-page demo + screenshots are in the video. |
 
+### Stretch goals shipped
+
+- **Multi-language targets.** The `target` is honored end to end: the same English translates to any BCP-47 code through the deployed gateway. Verified live: `"Sign in to see today's deals"` → **es-MX** `Inicia sesión para ver las ofertas de hoy` · **pt-BR** `Faça login para ver as ofertas de hoje` · **fr** `Connectez-vous pour voir les offres du jour`. es-MX keeps its rich native-translator register; other languages get a proper native-speaker prompt; numbers/prices/codes preserved in all.
+- **One-command local run.** `docker compose up --build` runs both services with the same public-gateway / private-AI topology as production (cache on a named volume).
+
 ## 4. Top fixes before shipping
 
 1. Record the 60–90s demo video showing the Chrome extension translating a full strict-CSP page (e.g. homedepot.com) on-screen, plus the cache-hit badge on re-translate — this closes the two Partial dimensions (page coverage, resilience, UX polish).
@@ -73,5 +78,5 @@ Speedup (miss p95 / hit p95): **218×**. These are honest cold-cache numbers —
 
 ### Deployment & run notes
 
-- **Deployed (Fly.io, region `ord`):** gateway `https://fde-live-translate-gateway.fly.dev`, AI service `https://fde-live-translate-ai.fly.dev`. Public gateway `/health` verified reachable and nests AI-service health. `ANTHROPIC_API_KEY` and `AI_SERVICE_URL` are set as Fly secrets (never committed).
-- **Local one-command run:** AI service — `uvicorn app:app --port 8000`; gateway — `npm start` (writes `gateway.log`; the AI service writes `ai-service.log`). A single `X-Request-Id` correlates one request across both logs (`trace_correlated: true`).
+- **Deployed (Fly.io, region `ord`):** the gateway `https://fde-live-translate-gateway.fly.dev` is **public**; the AI service is **private** — it has no public IP and is reached only by the gateway over Fly's 6PN network (`fde-live-translate-ai.internal:8000`), verified by the public AI URL being unreachable while translation still flows through the gateway. Public gateway `/health` nests the private AI's health. The SQLite cache is on a **persistent Fly volume** (`/data`), proven to survive a redeploy. `ANTHROPIC_API_KEY`, `AI_SERVICE_URL`, and `TRANSLATION_DB_PATH` are Fly secrets (never committed).
+- **Local run:** one command — `docker compose up --build` — runs both services (private AI + public gateway on 8787). Or run them directly: AI service `uvicorn app:app --port 8000`, gateway `npm start`. The gateway writes `gateway.log`, the AI service writes `ai-service.log`, and a single `X-Request-Id` correlates one request across both (`trace_correlated: true`).
