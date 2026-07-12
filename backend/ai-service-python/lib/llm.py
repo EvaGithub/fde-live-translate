@@ -31,17 +31,49 @@ def _get_client() -> AsyncAnthropic:
         _client = AsyncAnthropic()  # reads ANTHROPIC_API_KEY from the environment
     return _client
 
-# The prompt is where translation quality lives. It pins the register to Mexican
-# Spanish (ustedes, not vosotros; carro/camioneta, not coche), forbids preamble
-# and quotes, and protects numbers, prices, and product codes.
-SYSTEM_PROMPT = (
-    "Act as a native Mexican Spanish speaker who has translated English into "
-    "Mexican Spanish professionally for 49 years. Use common Mexican vocabulary — "
-    'for example "carro"/"camioneta" instead of the Castilian "coche", and '
-    '"ustedes" instead of the Castilian "vosotros". Output ONLY the translation: '
-    'no commentary like "here is the translation", and no wrapping quotes. Leave '
-    "numerical identifiers — numbers, prices, and product codes — untouched."
-)
+# The prompt is where translation quality lives. es-MX (the assignment's primary
+# target) gets the rich "49-year Mexican translator" persona that pins the register
+# (ustedes, not vosotros; carro/camioneta, not coche). Any other BCP-47 target gets
+# a solid generic native-speaker prompt. Both forbid preamble/quotes and protect
+# numbers, prices, and product codes.
+LANGUAGE_NAMES = {
+    "es-MX": "Mexican Spanish",
+    "es": "Spanish",
+    "es-ES": "Castilian Spanish",
+    "pt-BR": "Brazilian Portuguese",
+    "pt": "Portuguese",
+    "fr": "French",
+    "de": "German",
+    "it": "Italian",
+    "ja": "Japanese",
+    "zh": "Chinese",
+}
+
+
+def _language_name(target: str) -> str:
+    # Unknown codes fall back to the raw code, so any target still works.
+    return LANGUAGE_NAMES.get(target, target)
+
+
+def _register_rules(target: str) -> str:
+    if target == "es-MX":
+        return (
+            'Use common Mexican vocabulary — for example "carro"/"camioneta" '
+            'instead of the Castilian "coche", and "ustedes" instead of the '
+            'Castilian "vosotros". '
+        )
+    return ""
+
+
+def _system_prompt(target: str) -> str:
+    lang = _language_name(target)
+    return (
+        f"Act as a native {lang} speaker who has translated English into {lang} "
+        f"professionally for 49 years. {_register_rules(target)}Output ONLY the "
+        'translation: no commentary like "here is the translation", and no wrapping '
+        "quotes. Leave numerical identifiers — numbers, prices, and product codes — "
+        "untouched."
+    )
 
 
 async def translate_text(text: str, target: str = "es-MX", model: str = MODEL_DEFAULT) -> str:
@@ -52,7 +84,7 @@ async def translate_text(text: str, target: str = "es-MX", model: str = MODEL_DE
         # Translation needs no reasoning. Turning thinking off keeps latency and
         # token cost down — important for the cache-miss latency SLA.
         thinking={"type": "disabled"},
-        system=SYSTEM_PROMPT,
+        system=_system_prompt(target),
         messages=[{"role": "user", "content": text}],
     )
     # Pull the text block out defensively rather than assuming content[0].
@@ -65,16 +97,17 @@ async def translate_text(text: str, target: str = "es-MX", model: str = MODEL_DE
 # in a SINGLE call: send a JSON array in, get a JSON array of the same length back.
 # That is ~40× fewer API calls, stays well under the requests-per-minute limit, and
 # turns a page from "over an hour" into "seconds".
-BATCH_SYSTEM_PROMPT = (
-    "Act as a native Mexican Spanish speaker who has translated English into "
-    "Mexican Spanish professionally for 49 years. Use common Mexican vocabulary — "
-    'for example "carro"/"camioneta" instead of the Castilian "coche", and '
-    '"ustedes" instead of the Castilian "vosotros". Leave numerical identifiers — '
-    "numbers, prices, and product codes — untouched. Your input is a JSON array of "
-    "English strings. Return ONLY a JSON array of the SAME length, in the SAME order, "
-    "where each element is the Mexican Spanish translation of the string at that "
-    "position. No commentary, no markdown, no code fences — just the raw JSON array."
-)
+def _batch_system_prompt(target: str) -> str:
+    lang = _language_name(target)
+    return (
+        f"Act as a native {lang} speaker who has translated English into {lang} "
+        f"professionally for 49 years. {_register_rules(target)}Leave numerical "
+        "identifiers — numbers, prices, and product codes — untouched. Your input is "
+        "a JSON array of English strings. Return ONLY a JSON array of the SAME "
+        f"length, in the SAME order, where each element is the {lang} translation of "
+        "the string at that position. No commentary, no markdown, no code fences — "
+        "just the raw JSON array."
+    )
 
 
 def _strip_code_fences(s: str) -> str:
@@ -103,7 +136,7 @@ async def translate_batch_text(
         # ~40 strings of translated text can be long; give it generous headroom.
         max_tokens=8192,
         thinking={"type": "disabled"},
-        system=BATCH_SYSTEM_PROMPT,
+        system=_batch_system_prompt(target),
         messages=[{"role": "user", "content": payload}],
     )
     raw = next(block.text for block in msg.content if block.type == "text").strip()

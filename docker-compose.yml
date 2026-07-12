@@ -1,0 +1,34 @@
+# One command to run the whole product locally:  docker compose up --build
+#
+# Mirrors the Fly.io production topology:
+#   - ai-service is PRIVATE: no published ports, reachable only by the gateway
+#     on the internal compose network at http://ai-service:8000
+#   - gateway is PUBLIC: publishes 8787 to your host; the browser talks to it
+#   - the SQLite cache lives on a named volume so it survives `docker compose down`
+services:
+  ai-service:
+    build: ./backend/ai-service-python
+    # Loads ANTHROPIC_API_KEY (and MODEL, if set) from your local .env
+    env_file:
+      - ./backend/ai-service-python/.env
+    environment:
+      - TRANSLATION_DB_PATH=/data/translations.db
+    volumes:
+      - ai-cache:/data
+    expose:
+      - "8000"          # internal only — NOT published to the host
+    restart: unless-stopped
+
+  gateway:
+    build: ./backend/gateway-node
+    environment:
+      - PORT=8787
+      - AI_SERVICE_URL=http://ai-service:8000   # find the AI by its service name
+    ports:
+      - "8787:8787"     # the only port exposed to the outside world
+    depends_on:
+      - ai-service
+    restart: unless-stopped
+
+volumes:
+  ai-cache:
