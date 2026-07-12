@@ -19,6 +19,8 @@ import time
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from lib.cache import TwoTierCache
@@ -33,6 +35,11 @@ DB_PATH = os.getenv("TRANSLATION_DB_PATH", "translations.db")
 app = FastAPI(title="FDE Live Translate — AI Service")
 log = get_logger("ai-service")
 cache = TwoTierCache(DB_PATH)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(status_code=400, content={"error": "invalid input"})
 
 # request/response shapes ----------------------------------------------------
 class TranslateIn(BaseModel):
@@ -50,6 +57,16 @@ async def startup():
     log.info("ai_service_started", extra={"model": MODEL, "db": DB_PATH})
 
 
+@app.get("/")
+async def root():
+    return {
+        "service": "ai-service",
+        "status": "ok",
+        "message": "This service handles translation requests. Use /health or /translate.",
+        "endpoints": ["/health", "/translate", "/translate/batch", "/stats"],
+    }
+
+
 # --- core: translate one string --------------------------------------------
 async def translate_one(text: str, target: str) -> dict:
     """Translate a single string, using the cache first.
@@ -59,7 +76,7 @@ async def translate_one(text: str, target: str) -> dict:
     """
     text = (text or "").strip()
     if not text:
-        return {"translated": "", "cached": False, "latencyMs": 0, "model": MODEL}
+        raise ValueError("empty text")
 
     t0 = time.perf_counter()
 
@@ -81,7 +98,15 @@ async def translate_one(text: str, target: str) -> dict:
 
 @app.post("/translate")
 async def translate(body: TranslateIn, request: Request):
-    result = await translate_one(body.text, body.target)
+    try:
+        result = await translate_one(body.text, body.target)
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content={"error": "invalid input"})
+    except Exception as exc:
+        request_id = request.headers.get("x-request-id")
+        log.exception("translate_failed", extra={"request_id": request_id, "error": str(exc)})
+        return JSONResponse(status_code=502, content={"error": "AI service error: " + str(exc)})
+
     log.info(
         "translate",
         extra={
@@ -96,23 +121,28 @@ async def translate(body: TranslateIn, request: Request):
 
 @app.post("/translate/batch")
 async def translate_batch(body: BatchIn, request: Request):
-    t0 = time.perf_counter()
-    results = []
-    for t in body.texts:
-        results.append(await translate_one(t, body.target))
-    latency = int((time.perf_counter() - t0) * 1000)
-    hits = sum(1 for r in results if r["cached"])
-    log.info(
-        "translate_batch",
-        extra={
-            "request_id": request.headers.get("x-request-id"),
-            "count": len(results),
-            "hits": hits,
-            "latencyMs": latency,
-        },
-    )
-    # widget expects {results: [{translated, cached}], latencyMs}
-    return {"results": [{"translated": r["translated"], "cached": r["cached"]} for r in results], "latencyMs": latency}
+    try:
+        t0 = time.perf_counter()
+        results = []
+        for t in body.texts:
+            results.append(await translate_one(t, body.target))
+        latency = int((time.perf_counter() - t0) * 1000)
+        hits = sum(1 for r in results if r["cached"])
+        log.info(
+            "translate_batch",
+            extra={
+                "request_id": request.headers.get("x-request-id"),
+                "count": len(results),
+                "hits": hits,
+                "latencyMs": latency,
+            },
+        )
+        # widget expects {results: [{translated, cached}], latencyMs}
+        return {"results": [{"translated": r["translated"], "cached": r["cached"]} for r in results], "latencyMs": latency}
+    except Exception as exc:
+        request_id = request.headers.get("x-request-id")
+        log.exception("translate_batch_failed", extra={"request_id": request_id, "error": str(exc)})
+        return JSONResponse(status_code=502, content={"error": "AI service error: " + str(exc)})
 
 
 @app.get("/health")

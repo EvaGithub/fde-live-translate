@@ -12,6 +12,7 @@ input with sha256 gives you a compact, collision-safe key.
 Fill in the TODOs. The method signatures and stats are laid out for you.
 """
 import hashlib
+import os
 
 import aiosqlite
 
@@ -26,8 +27,14 @@ class TwoTierCache:
         self._mem: dict[str, str] = {}
         self._stats = {"requests": 0, "memory_hits": 0, "db_hits": 0, "misses": 0}
 
+    def _ensure_parent_dir(self) -> None:
+        parent = os.path.dirname(self.db_path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+
     async def init(self) -> None:
         """Create the translations table if it doesn't exist."""
+        self._ensure_parent_dir()
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 """

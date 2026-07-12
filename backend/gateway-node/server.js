@@ -17,11 +17,22 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const crypto = require("crypto");
+const fs = require("fs");
 require("dotenv").config();
 
 const PORT = process.env.PORT || 8787;
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:8000";
 const WIDGET_PATH = path.join(__dirname, "..", "..", "widget", "translation-widget.js");
+
+// Structured request logs go to stdout (12-factor) AND a gateway.log file, so a
+// request id is greppable across services regardless of how the process is
+// launched (the eval greps gateway.log directly).
+const logStream = fs.createWriteStream(path.join(__dirname, "gateway.log"), { flags: "a" });
+function logLine(obj) {
+  const line = JSON.stringify(obj);
+  console.log(line);
+  logStream.write(line + "\n");
+}
 
 const app = express();
 const startedAt = Date.now();
@@ -39,18 +50,25 @@ app.use((req, res, next) => {
   req.requestId = req.headers["x-request-id"] || crypto.randomUUID();
   res.setHeader("X-Request-Id", req.requestId);
   res.on("finish", () => {
-    console.log(
-      JSON.stringify({
-        ts: new Date().toISOString(),
-        requestId: req.requestId,
-        method: req.method,
-        url: req.originalUrl,
-        status: res.statusCode,
-        ms: Date.now() - t0,
-      })
-    );
+    logLine({
+      ts: new Date().toISOString(),
+      requestId: req.requestId,
+      method: req.method,
+      url: req.originalUrl,
+      status: res.statusCode,
+      ms: Date.now() - t0,
+    });
   });
   next();
+});
+
+app.get("/", (req, res) => {
+  res.json({
+    service: "gateway",
+    status: "ok",
+    message: "This is the public gateway for the translation widget. Use /health or /translate.",
+    endpoints: ["/health", "/translate", "/translate/batch", "/stats", "/widget.js"],
+  });
 });
 
 // --- serve the widget to the console loader ------------------------------
