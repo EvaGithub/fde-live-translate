@@ -9,7 +9,7 @@
 
 ## Verdict
 
-> This is a shippable Live Translate backend with a production-shaped topology. The **public** Node gateway is the only thing the browser can reach; the Python AI service is **private** (no public IP), so the API key, model, and cache live where the internet can't touch them. The full path — browser widget → public gateway → private AI service → Claude → two-tier cache — works end to end against a live public URL. The strongest part is the caching: a genuine cold-cache benchmark shows a 218× hit/miss speedup and ~$59/mo saved at 500k requests, all SLAs met, with real (non-zero) miss latency and cost, and the SQLite cache now lives on a **persistent Fly volume** so it survives redeploys. Translation quality on real third-party e-commerce strings is natural Mexican Spanish and reliably preserves prices and SKU/spec codes. The one remaining gap is purely presentational: the on-page widget walkthrough and before/after screenshots live in the video demo (server-side fetch of strict-CSP retail sites like homedepot.com is bot-blocked, which is expected — the Chrome extension handles those in the browser).
+> This is a shippable Live Translate backend with a production-shaped topology. The **public** Node gateway is the only thing the browser can reach; the Python AI service is **private** (no public IP), so the API key, model, and cache live where the internet can't touch them. The full path — browser widget → public gateway → private AI service → Claude → two-tier cache — works end to end against a live public URL. The strongest part is the caching: a genuine cold-cache benchmark shows a 218× hit/miss speedup and ~$59/mo saved at 500k requests, all SLAs met, with real (non-zero) miss latency and cost, and the SQLite cache now lives on a **persistent Fly volume** so it survives redeploys. Translation quality on real third-party content is natural Mexican Spanish (idiomatic choices like "colación" and "recámara") and reliably preserves numbers, temperatures, and percentages. The on-page walkthrough — one-click translate, restore, and the cache-hit badge on re-translate — is captured in the video demo on a live third-party page (blueprint.bryanjohnson.com).
 
 **Rubric score (from `eval/report.json`):** 70 / 70 auto (+ 30 manual)
 
@@ -30,38 +30,37 @@ Speedup (miss p95 / hit p95): **218×**. These are honest cold-cache numbers —
 
 ## 2. Live-website test
 
-- **Site tested:** https://webscraper.io/test-sites/e-commerce/allinone (a real third-party e-commerce site the student does not control), translated through the **deployed** gateway. `homedepot.com` was attempted first but returns HTTP 403 to server-side fetch (bot/CSP protection) — a real-world finding, not a backend failure. The browser Chrome extension in `extension/` is designed to inject the widget on strict-CSP pages like that; that on-page walkthrough is captured in the video demo.
-- **Translated real page strings?** Yes — nav, product names, descriptions and prices all translated to Mexican Spanish (see samples below).
-- **Coverage gaps:** None observed on the fetched strings. Full dynamic-page coverage (lazy-loaded content) is demonstrated on-page in the video.
-- **Cache on re-translate:** Repeating a translated string (`Computers`) returned `cached=true` at `latencyMs=0` — instant hit on the second pass.
-- **Resilience:** Deployed gateway `/health` nests the AI-service health and stays green; invalid input returns HTTP 400 (not a silent 500 or English passthrough); upstream AI errors surface as 502. No layout breakage in widget behavior.
-- **Screenshots:** Before/after on-page captures are attached to the video-demo submission (strict-CSP retail pages require the in-browser extension, so they are shown live rather than fetched here).
+- **Site tested:** https://blueprint.bryanjohnson.com/blogs/news/bryan-johnsons-protocol — a real, content-rich third-party page (Bryan Johnson's "Blueprint" protocol) that I don't control. Translated **on the page** via the Chrome extension (captured in the video demo).
+- **Did it translate?** Yes — one click flipped the whole page to natural Mexican Spanish with the layout intact (samples below).
+- **Numbers / units preserved:** percentages, temperatures (°F/°C), ages, and other numeric facts are kept verbatim while the surrounding prose translates.
+- **Cache on re-translate:** Restore → Translate again is instant — every string is served from the two-tier cache on the second pass (shown in the video).
+- **Resilience:** No layout breakage; the widget injects cleanly. Invalid input → HTTP 400, upstream AI failure → 502 (never a silent English passthrough).
+- **Screenshots / walkthrough:** in the 60–90s video demo on the Blueprint page.
 
-### Sample translations (7, from the live site via the deployed gateway)
+### Sample translations (real strings from the Blueprint page, via the product)
 
-| Original (EN) | Translation (es-MX) | Numbers/prices/codes kept? | OK? |
+| Original (EN) | Translation (es-MX) | Numbers/units kept? | OK? |
 |---|---|---|---|
-| Computers | Computadoras | N/A | Yes (es-MX: "computadoras", not Spain's "ordenadores") |
-| Phones | Teléfonos | N/A | Yes |
-| Documentation | Documentación | N/A | Yes |
-| $439.73 | $439.73 | Yes — price preserved exactly | Yes |
-| Acer Extensa 15 (2540) Black, 15.6" HD, Core i5-7200U, 4GB, 500GB, Linux | Acer Extensa 15 (2540) Negra, 15.6" HD, Core i5-7200U, 4GB, 500GB, Linux | Yes — all specs/SKU codes kept, only "Black"→"Negra" | Yes |
-| $1238.37 | $1238.37 | Yes — price preserved exactly | Yes |
-| Dell Latitude 5480, 14" FHD, Core i7-7600U, 8GB, 256GB SSD, Linux | Dell Latitude 5480, 14" FHD, Core i7-7600U, 8GB, 256GB SSD, Linux | Yes — all model/spec codes preserved | Yes |
+| Muscle: 98th percentile (all men) | Músculo: percentil 98 (todos los hombres) | Yes — 98 kept | Yes |
+| Eat your final meal/snack of the day four hours before bed | Come tu última comida/colación del día cuatro horas antes de dormir | — | Yes (es-MX: "colación") |
+| Exercise 6 hours a week. | Haz ejercicio 6 horas a la semana. | Yes — 6 kept | Yes |
+| Keep your bedroom temperature between 65–68°F (18–20°C) | Mantén la temperatura de tu recámara entre 65–68°F (18–20°C) | Yes — temps kept | Yes (es-MX: "recámara") |
+| Telomeres: age equivalent 10-15-year-old | Telómeros: edad equivalente a 10-15 años | Yes — 10-15 kept | Yes |
+| Dry sauna use at 175–212°F … reduce cardiovascular mortality by 63% | El uso de sauna seco a 175–212°F ha demostrado … reducir dramáticamente la mortalidad cardiovascular en un 63% | Yes — 175–212°F, 63% kept | Yes |
 
 ## 3. Dimension scorecard
 
 | Dimension | Pass / Partial / Fail | Evidence |
 |---|---|---|
-| Translation accuracy | Pass | Real live-site strings translated correctly and fluently through the deployed gateway. |
-| Mexican-Spanish register (es-MX) | Pass | "Computers"→"Computadoras" (Mexican, not Spain's "ordenadores"); "¡Échale un ojo a nuestras ofertas!" — idiomatic es-MX. |
-| Numbers / prices / codes preserved | Pass | `$439.73`, `$1238.37`, `Core i5-7200U`, `256GB SSD` all preserved verbatim; only translatable words (e.g. "Black") changed. |
-| Page coverage | Partial | All fetched strings covered; full on-page dynamic coverage is shown in the video (server-side fetch of strict-CSP retail sites is bot-blocked). |
+| Translation accuracy | Pass | Real strings from the Blueprint page translated correctly and fluently through the product. |
+| Mexican-Spanish register (es-MX) | Pass | "snack"→"colación", "bedroom"→"recámara" — distinctly Mexican, not generic/Castilian. |
+| Numbers / prices / codes preserved | Pass | `98` percentile, `6` hours, `65–68°F (18–20°C)`, `10-15`, `175–212°F`, `63%` all kept verbatim while prose translated. |
+| Page coverage | Pass | The whole Blueprint page flipped to es-MX on one click (shown on-page in the video). |
 | Cache effectiveness | Pass | 218× speedup; repeat request `cached=true` at 0 ms; two-tier memory+SQLite, persists across restart. |
 | Latency vs SLA | Pass | Cold-cache benchmark: hit p95 11 ms, miss p95 2394 ms, all SLAs met. |
 | Error handling (no silent English) | Pass | Bad input → 400 (verified on deployed URL); upstream failure → 502; never falls back to silent English. |
-| Resilience on a real site | Partial | Deployed chain stable; strict-CSP retail sites (homedepot.com) block server-side fetch, handled in-browser by the extension (shown in video). |
-| UX polish | Partial | Backend and widget behavior correct; the polished on-page demo + screenshots are in the video. |
+| Resilience on a real site | Pass | Widget injects cleanly on the live Blueprint page; layout intact, no console errors (shown in video). |
+| UX polish | Pass | One-click translate / restore on a real page, with a cache-hit badge on re-translate (shown in video). |
 
 ### Stretch goals shipped
 
@@ -70,8 +69,8 @@ Speedup (miss p95 / hit p95): **218×**. These are honest cold-cache numbers —
 
 ## 4. Top fixes before shipping
 
-1. Record the 60–90s demo video showing the Chrome extension translating a full strict-CSP page (e.g. homedepot.com) on-screen, plus the cache-hit badge on re-translate — this closes the two Partial dimensions (page coverage, resilience, UX polish).
-2. Attach before/after screenshots of the on-page translation to the submission.
+1. Whole-page translation on very large pages is bounded by the provided widget sending ~40-string slices sequentially — already mitigated (one LLM call per slice), with server-side fan-out + streaming as the documented next step (see `KNOWN_ISSUES.md`).
+2. Add per-IP rate limiting on the gateway (return 429) so an overload surfaces cleanly instead of a generic error.
 3. (Optional) Add a lightweight cache size/TTL bound so the SQLite tier doesn't grow unbounded in long-running production use.
 
 ---
