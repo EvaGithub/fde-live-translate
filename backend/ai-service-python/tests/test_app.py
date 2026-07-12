@@ -42,6 +42,37 @@ class TranslateErrorHandlingTests(unittest.TestCase):
         self.assertEqual(response.status_code, 502)
         self.assertIn("error", response.json())
 
+    def test_batch_uses_single_llm_call_and_preserves_order(self):
+        # A batch of misses must go out in ONE translate_batch_text call, and the
+        # results must line up 1:1 with the inputs in the same order.
+        batch = AsyncMock(return_value=["uno", "dos", "tres"])
+        with patch("app.cache.get", new_callable=AsyncMock, return_value=None), \
+             patch("app.cache.set", new_callable=AsyncMock), \
+             patch("app.translate_batch_text", batch):
+            response = self.client.post(
+                "/translate/batch", json={"texts": ["one", "two", "three"], "target": "es-MX"}
+            )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual([r["translated"] for r in body["results"]], ["uno", "dos", "tres"])
+        self.assertTrue(all(r["cached"] is False for r in body["results"]))
+        batch.assert_awaited_once()  # exactly one LLM call for the whole batch
+
+    def test_batch_falls_back_to_per_string_on_malformed_response(self):
+        # If the single-call batch raises (e.g. bad count), we fall back to
+        # per-string translation rather than failing the whole page.
+        with patch("app.cache.get", new_callable=AsyncMock, return_value=None), \
+             patch("app.cache.set", new_callable=AsyncMock), \
+             patch("app.translate_batch_text", new_callable=AsyncMock, side_effect=ValueError("count mismatch")), \
+             patch("app.translate_text", new_callable=AsyncMock, side_effect=lambda t, *a, **k: t.upper()):
+            response = self.client.post(
+                "/translate/batch", json={"texts": ["a", "b"], "target": "es-MX"}
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([r["translated"] for r in response.json()["results"]], ["A", "B"])
+
 
 if __name__ == "__main__":
     unittest.main()

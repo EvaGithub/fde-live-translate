@@ -14,6 +14,7 @@ TODOs so the widget lights up. Run:
     cp .env.example .env          # then add your API key
     uvicorn app:app --reload --port 8000
 """
+import asyncio
 import os
 import time
 
@@ -24,7 +25,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from lib.cache import TwoTierCache
-from lib.llm import translate_text
+from lib.llm import translate_batch_text, translate_text
 from lib.logger import get_logger
 
 load_dotenv()
@@ -119,13 +120,56 @@ async def translate(body: TranslateIn, request: Request):
     return result
 
 
+async def _batch_translate(texts: list[str], target: str) -> list[dict]:
+    """Translate a batch: serve cache hits for free, translate all misses in ONE
+    LLM call. Returns a list aligned 1:1 with `texts`, each {translated, cached}.
+
+    The widget sends whole pages in slices of ~40, so translating each slice in a
+    single request (instead of one call per string) is the difference between
+    seconds and over an hour — and it stays under the provider rate limit.
+    """
+    # 1) Cache lookups are cheap and local; do them all first.
+    stripped = [(t or "").strip() for t in texts]
+    cached_values = await asyncio.gather(
+        *[cache.get(s, target) if s else _none() for s in stripped]
+    )
+
+    results: list[dict | None] = [None] * len(texts)
+    miss_idx: list[int] = []
+    for i, (s, cached) in enumerate(zip(stripped, cached_values)):
+        if not s:
+            results[i] = {"translated": texts[i], "cached": False}  # passthrough blanks
+        elif cached is not None:
+            results[i] = {"translated": cached, "cached": True}
+        else:
+            miss_idx.append(i)
+
+    # 2) All misses in a single LLM call; on any malformed response, fall back to
+    #    per-string translation so one bad batch never misaligns or fails the page.
+    if miss_idx:
+        miss_texts = [stripped[i] for i in miss_idx]
+        try:
+            translations = await translate_batch_text(miss_texts, target, model=MODEL)
+        except Exception:
+            translations = await asyncio.gather(
+                *[translate_text(t, target, model=MODEL) for t in miss_texts]
+            )
+        for i, translated in zip(miss_idx, translations):
+            await cache.set(stripped[i], target, translated, model=MODEL)
+            results[i] = {"translated": translated, "cached": False}
+
+    return results  # type: ignore[return-value]
+
+
+async def _none():
+    return None
+
+
 @app.post("/translate/batch")
 async def translate_batch(body: BatchIn, request: Request):
     try:
         t0 = time.perf_counter()
-        results = []
-        for t in body.texts:
-            results.append(await translate_one(t, body.target))
+        results = await _batch_translate(body.texts, body.target)
         latency = int((time.perf_counter() - t0) * 1000)
         hits = sum(1 for r in results if r["cached"])
         log.info(
@@ -138,7 +182,7 @@ async def translate_batch(body: BatchIn, request: Request):
             },
         )
         # widget expects {results: [{translated, cached}], latencyMs}
-        return {"results": [{"translated": r["translated"], "cached": r["cached"]} for r in results], "latencyMs": latency}
+        return {"results": results, "latencyMs": latency}
     except Exception as exc:
         request_id = request.headers.get("x-request-id")
         log.exception("translate_batch_failed", extra={"request_id": request_id, "error": str(exc)})

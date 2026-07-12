@@ -10,6 +10,7 @@ FAIL LOUD: this function does NOT catch provider errors. If the call fails, the
 exception propagates so the caller (app.py) returns a 502. Silently returning the
 untranslated English is an automatic fail on this assignment.
 """
+import json
 import os
 
 from anthropic import AsyncAnthropic
@@ -56,3 +57,58 @@ async def translate_text(text: str, target: str = "es-MX", model: str = MODEL_DE
     )
     # Pull the text block out defensively rather than assuming content[0].
     return next(block.text for block in msg.content if block.type == "text").strip()
+
+
+# For whole-page translation the widget sends up to 40 strings per /translate/batch
+# call. Translating them ONE PER LLM CALL is both slow (sequential round-trips) and
+# rate-limit-bound (one API request per string). Instead we translate a whole batch
+# in a SINGLE call: send a JSON array in, get a JSON array of the same length back.
+# That is ~40× fewer API calls, stays well under the requests-per-minute limit, and
+# turns a page from "over an hour" into "seconds".
+BATCH_SYSTEM_PROMPT = (
+    "Act as a native Mexican Spanish speaker who has translated English into "
+    "Mexican Spanish professionally for 49 years. Use common Mexican vocabulary — "
+    'for example "carro"/"camioneta" instead of the Castilian "coche", and '
+    '"ustedes" instead of the Castilian "vosotros". Leave numerical identifiers — '
+    "numbers, prices, and product codes — untouched. Your input is a JSON array of "
+    "English strings. Return ONLY a JSON array of the SAME length, in the SAME order, "
+    "where each element is the Mexican Spanish translation of the string at that "
+    "position. No commentary, no markdown, no code fences — just the raw JSON array."
+)
+
+
+def _strip_code_fences(s: str) -> str:
+    """Some models wrap JSON in ```json … ``` fences; peel them off if present."""
+    s = s.strip()
+    if s.startswith("```"):
+        s = s[s.find("\n") + 1 :] if "\n" in s else s[3:]
+        if s.rstrip().endswith("```"):
+            s = s.rstrip()[:-3]
+    return s.strip()
+
+
+async def translate_batch_text(
+    texts: list[str], target: str = "es-MX", model: str = MODEL_DEFAULT
+) -> list[str]:
+    """Translate a list of strings in a SINGLE LLM call; returns a same-length list.
+
+    Raises if the model returns the wrong number of items so the caller can fall
+    back to per-string translation rather than misaligning the page.
+    """
+    if not texts:
+        return []
+    payload = json.dumps(list(texts), ensure_ascii=False)
+    msg = await _get_client().messages.create(
+        model=model,
+        # ~40 strings of translated text can be long; give it generous headroom.
+        max_tokens=8192,
+        thinking={"type": "disabled"},
+        system=BATCH_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": payload}],
+    )
+    raw = next(block.text for block in msg.content if block.type == "text").strip()
+    translations = json.loads(_strip_code_fences(raw))
+    if not isinstance(translations, list) or len(translations) != len(texts):
+        got = len(translations) if isinstance(translations, list) else "non-list"
+        raise ValueError(f"batch translation count mismatch: got {got} for {len(texts)} inputs")
+    return [str(t) for t in translations]
