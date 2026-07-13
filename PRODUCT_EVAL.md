@@ -28,12 +28,14 @@
 
 ## 2. Live-website test
 
-- **Site tested:** https://blueprint.bryanjohnson.com/blogs/news/bryan-johnsons-protocol — a real, content-rich third-party page (Bryan Johnson's "Blueprint" protocol) that the student does not control.
-- **Translated whole page?** Yes — full-page one-click translate/restore is demonstrated **on the page via the Chrome extension in the video demo**. For this written eval, 8 verbatim strings pulled live from the page were translated through the running backend (`/translate/batch`); all 8 returned correct es-MX with layout-neutral output.
-- **Coverage gaps:** None in the sampled content. Full-page coverage (nav, dynamically-loaded sections) is shown in the video; the extension is required on strict-CSP sites (console injection is blocked by CSP — a browser limitation, not a backend fault).
-- **Cache on re-translate:** Re-sending the same 8-string batch returned **all 8 `cached: true`** in **11 ms vs 5060 ms** cold (~460×). `/stats` reported an 83% hit rate after the run.
+Two independent tests on real third-party sites the student does not control:
+
+- **On-page video demo — `theblogstarter.com/about-me`:** the `demo.mp4` walkthrough loads the widget via the Chrome extension (pointed at the public Fly.io gateway) and does **full-page one-click Translate → Restore → Translate again** on this live page. The whole page — heading, nav, sidebar, body, and comments — flips to Mexican Spanish; the on-screen badge reports **67 chunks · 8 cache hits · ~16.8 s**, and the re-translate after Restore returns instantly from cache. This is the primary live, on-page demonstration.
+- **Written string-level test — Blueprint page:** for this document, 8 verbatim strings pulled live from `https://blueprint.bryanjohnson.com/blogs/news/bryan-johnsons-protocol` (Bryan Johnson's "Blueprint" protocol) were translated through the running backend (`/translate/batch`); all 8 returned correct es-MX with numbers/units preserved (table below).
+- **Coverage:** No gaps in either test. Full-page coverage (heading, nav, sidebar, body) is shown on-screen in the video; the extension is required on strict-CSP sites (console injection is blocked by CSP — a browser limitation, not a backend fault).
+- **Cache on re-translate:** In the video, Restore → Translate again on theblogstarter page returns near-instantly from cache. In the written batch test, re-sending the same 8 Blueprint strings returned **all 8 `cached: true`** in **11 ms vs 5060 ms** cold (~460×); `/stats` reported an 83% hit rate after the run.
 - **Resilience:** Clean — 0 errors, layout intact, no swallowed failures. The widget was hardened this session to resolve the backend URL lazily (avoids a config race when injected as a content script).
-- **Screenshots:** Before/after and the cache-hit badge are captured in the 60–90s video demo on the Blueprint page.
+- **Screenshots:** Before/after and the cache-hit badge are captured in the 68-second video demo on the theblogstarter.com page.
 
 ### Sample translations (live Blueprint content)
 
@@ -58,8 +60,8 @@ Register is unmistakably **Mexican** (`recámara` not `dormitorio`, `plomero` no
 |---|---|---|
 | Translation accuracy | Pass | 8/8 live Blueprint strings fluent and faithful. |
 | Mexican-Spanish register (es-MX) | Pass | `recámara`, `plomero`, informal imperatives — not Castilian/generic. |
-| Numbers / prices / codes preserved | Pass | 2,250 · 10% · $42 · 65–68°F/18–20°C · 200°F/93°C all preserved verbatim. |
-| Page coverage | Pass | Full-page translate/restore on the live page in the video; all sampled strings covered. |
+| Numbers / prices / codes preserved | Pass | 2,250 · 10% · 65–68°F/18–20°C · 200°F/93°C (Blueprint) plus `$47` and `$129.99` (live gateway) all preserved verbatim. |
+| Page coverage | Pass | Full-page translate/restore on theblogstarter.com in the video (heading, nav, sidebar, body); all Blueprint sample strings covered. |
 | Cache effectiveness | Pass | 393× cold benchmark; 460× on the live batch (5060 ms → 11 ms); SQLite survives restart. |
 | Latency vs SLA | Pass | Every SLA in `sla.json` met; `bench.py` exits 0. |
 | Error handling (no silent English) | Pass | `lib/llm.py` fails loud (no untranslated-fallback); bad input → 400 (auto-verified). |
