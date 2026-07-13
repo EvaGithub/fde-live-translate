@@ -1,5 +1,5 @@
 {
-  "assignment": "Assignment 1 — Live Translate",
+  "assignment": "Assignment 1 \u2014 Live Translate",
   "student": "Eva Losada",
   "video": "demo.mp4",
   "target": "http://localhost:8787",
@@ -23,28 +23,28 @@
     "service_separation_contract": "400_on_bad_input=True, gateway_nests_ai_health=True"
   },
   "evidence": {
-    "sample_translation": "¡Buenos días, bienvenido!",
-    "cache_first_ms": 0,
-    "cache_second_ms": 0,
-    "bench_tail": "    cost per MISS (avg)         $0.000000\n    @ 500,000/mo, no cache      $0.00\n    @ 500,000/mo, cached        $0.00\n    monthly savings from cache  $0.00\n── SLA GATE ────────────────────────────────────────\n    PASS  cache_hit_p95_ms         2.6 <= 60\n    PASS  cache_miss_p95_ms        0.0 <= 3500\n    PASS  min_cache_hit_rate_pct   100.0 >= 60\n    PASS  max_error_rate_pct       0.0 <= 1.0\n    PASS  min_throughput_rps       3563.2 >= 20\n\n✅ ALL SLAs MET\n\nWrote /Users/evalb/FDE . Assigment 1/eval/_bench.json",
+    "sample_translation": "\u00a1Buenos d\u00edas, bienvenido!",
+    "cache_first_ms": 1886,
+    "cache_second_ms": 4,
+    "bench_tail": "    cost per MISS (avg)         $0.000159\n    @ 500,000/mo, no cache      $79.72\n    @ 500,000/mo, cached        $19.93\n    monthly savings from cache  $59.79\n\u2500\u2500 SLA GATE \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n    PASS  cache_hit_p95_ms         10.5 <= 60\n    PASS  cache_miss_p95_ms        3375.7 <= 3500\n    PASS  min_cache_hit_rate_pct   75.0 >= 60\n    PASS  max_error_rate_pct       0.0 <= 1.0\n    PASS  min_throughput_rps       1499.8 >= 20\n\n\u2705 ALL SLAs MET\n",
     "bench_metrics": {
-      "target": "http://localhost:8787",
+      "target": "http://127.0.0.1:8787",
       "rounds": 4,
       "concurrency": 8,
       "latency": {
-        "miss_p50": 0.0,
-        "miss_p95": 0.0,
-        "hit_p50": 1.938999999765656,
-        "hit_p95": 2.5758639493687947
+        "miss_p50": 1885.5469369991624,
+        "miss_p95": 3375.658177399785,
+        "hit_p50": 4.136978999667917,
+        "hit_p95": 10.482163148299149
       },
-      "hit_rate_pct": 100.0,
+      "hit_rate_pct": 75.0,
       "error_rate_pct": 0.0,
-      "throughput_rps": 3563.1656327724577,
+      "throughput_rps": 1499.785980656891,
       "cost": {
-        "per_miss_usd": 0.0,
-        "monthly_no_cache_usd": 0.0,
-        "monthly_cached_usd": 0.0,
-        "monthly_savings_usd": 0.0
+        "per_miss_usd": 0.00015945,
+        "monthly_no_cache_usd": 79.725,
+        "monthly_cached_usd": 19.93125,
+        "monthly_savings_usd": 59.793749999999996
       },
       "sla_pass": true
     },

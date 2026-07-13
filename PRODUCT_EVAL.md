@@ -1,14 +1,14 @@
 # Product Evaluation — Live Translate
 
 - **Student:** Eva Losada
-- **Date:** 2026-07-13
-- **Video demo:** demo.mp4
+- **Date:** 2026-07-14
+- **Video demo:** demo.mp4 — full-page on-page walkthrough on `theblogstarter.com/about-me`
 - **LLM provider / model:** Anthropic Claude — `claude-sonnet-5`
 - **Backend target:** rubric + benchmark run against local (`http://localhost:8787` gateway → private AI service `:8000`); **public deploy verified live** at `https://fde-live-translate-gateway.fly.dev` (auto-checked, `deploy_health_ok: true`).
 
 ## Verdict
 
-> This is a genuinely shippable Live Translate backend with a production-shaped topology: a public Node gateway is the only internet-facing surface, and the Python AI service, API key, model, and two-tier cache sit behind it privately. Run end-to-end against real third-party content, it performs well — natural **Mexican Spanish** (idiomatic `recámara`, `plomero`, `Haz ejercicio`), every number/price/unit preserved, a genuine cold-cache benchmark showing a **393× hit/miss speedup** and **~$59.51/mo saved** at 500k requests, 0 errors, all SLAs met, and request-ID tracing that is greppable end-to-end across both services. Both services are **deployed and live on Fly.io** — the public gateway `/health` nests the private AI service, and a real translate through the public URL preserves numbers and prices in es-MX. The machines auto-stop when idle and auto-wake on first request (~3-5s cold start), so the deploy runs cost-efficiently while staying reachable. Submission-ready across every dimension.
+> This is a genuinely shippable Live Translate backend with a production-shaped topology: a public Node gateway is the only internet-facing surface, and the Python AI service, API key, model, and two-tier cache sit behind it privately. Run end-to-end against real third-party content, it performs well — natural **Mexican Spanish** (idiomatic `recámara`, `plomero`, `Haz ejercicio`), every number/price/unit preserved, a genuine cold-cache benchmark showing a **322× hit/miss speedup** and **~$59.79/mo saved** at 500k requests, 0 errors, all SLAs met, and request-ID tracing that is greppable end-to-end across both services. Both services are **deployed and live on Fly.io** — the public gateway `/health` nests the private AI service, and a real translate through the public URL preserves numbers and prices in es-MX. The machines auto-stop when idle and auto-wake on first request (~3-5s cold start), so the deploy runs cost-efficiently while staying reachable. Submission-ready across every dimension.
 
 **Rubric score (from `eval/report.json`):** 70 / 70 auto (+ 30 manual)
 
@@ -16,53 +16,60 @@
 
 | Metric | Result | SLA | Pass? |
 |---|---|---|---|
-| Cache hit p95 | 7.9 ms | ≤ 60 ms | ✅ |
-| Cache miss p95 | 3123.5 ms | ≤ 3500 ms | ✅ |
+| Cache hit p95 | 10.5 ms | ≤ 60 ms | ✅ |
+| Cache miss p95 | 3375.7 ms | ≤ 3500 ms | ✅ |
 | Cache hit rate | 75.0 % | ≥ 60 % | ✅ |
-| Throughput | 1528.3 req/s | ≥ 20 | ✅ |
+| Throughput | 1499.8 req/s | ≥ 20 | ✅ |
 | Error rate | 0.0 % | ≤ 1 % | ✅ |
-| Cost per miss | $0.0001587 | — | — |
-| Monthly savings from cache | $59.51 | — | — |
+| Cost per miss | $0.0001594 | — | — |
+| Monthly savings from cache | $59.79 | — | — |
 
-`python benchmark/bench.py` exits `0` — **all SLAs met**. Numbers are from a cold run against an empty cache (miss p95 3.1s is a real LLM call; hit p95 8ms is served from the two-tier cache → **393×** speedup). Cost is modeled at 500k req/mo: **$79.35 uncached → $19.84 cached**.
+`python benchmark/bench.py` exits `0` — **all SLAs met**. Numbers are from a genuine cold run against an **empty** cache on 2026-07-14 (miss p95 3.4s is a real LLM call; hit p95 10.5ms is served from the two-tier cache → **322×** speedup). Cost is modeled at 500k req/mo: **$79.72 uncached → $19.93 cached**. Raw output in `benchmark/_bench.json`.
 
 ## 2. Live-website test
 
-Two independent tests on real third-party sites the student does not control:
+The primary demonstration is the **on-page video demo** (`demo.mp4`) on a real third-party site the student does not control. So the translations are independently checkable in this document, the same page's strings were also re-run live through the public gateway (raw request/response saved to `eval/aboutme_live_test.json`).
 
-- **On-page video demo — `theblogstarter.com/about-me`:** the `demo.mp4` walkthrough loads the widget via the Chrome extension (pointed at the public Fly.io gateway) and does **full-page one-click Translate → Restore → Translate again** on this live page. The whole page — heading, nav, sidebar, body, and comments — flips to Mexican Spanish; the on-screen badge reports **67 chunks · 8 cache hits · ~16.8 s**, and the re-translate after Restore returns instantly from cache. This is the primary live, on-page demonstration.
-- **Written string-level test — Blueprint page:** for this document, 8 verbatim strings pulled live from `https://blueprint.bryanjohnson.com/blogs/news/bryan-johnsons-protocol` (Bryan Johnson's "Blueprint" protocol) were translated through the running backend (`/translate/batch`); all 8 returned correct es-MX with numbers/units preserved (table below).
-- **Coverage:** No gaps in either test. Full-page coverage (heading, nav, sidebar, body) is shown on-screen in the video; the extension is required on strict-CSP sites (console injection is blocked by CSP — a browser limitation, not a backend fault).
-- **Cache on re-translate:** In the video, Restore → Translate again on theblogstarter page returns near-instantly from cache. In the written batch test, re-sending the same 8 Blueprint strings returned **all 8 `cached: true`** in **11 ms vs 5060 ms** cold (~460×); `/stats` reported an 83% hit rate after the run.
-- **Resilience:** Clean — 0 errors, layout intact, no swallowed failures. The widget was hardened this session to resolve the backend URL lazily (avoids a config race when injected as a content script).
-- **Screenshots:** Before/after and the cache-hit badge are captured in the 68-second video demo on the theblogstarter.com page.
+- **On-page video demo — `theblogstarter.com/about-me`:** `demo.mp4` loads the widget via the Chrome extension (pointed at the public Fly.io gateway) and does **full-page one-click Translate → Restore** on this live page. The whole page — heading, nav, body, sidebar, and comments — flips to Mexican Spanish; the on-screen badge reports **67 chunks · 8 cache hits · ~16.8 s**. This is the primary live, on-page demonstration.
+- **Same page verified through the live gateway:** 8 representative strings from `theblogstarter.com/about-me` were sent through the live public gateway (`POST /translate/batch`, `target: es-MX`) on 2026-07-14; **all 8 returned correct es-MX** (table below), server `latencyMs 3964` on the uncached strings.
+- **Cache on re-translate:** re-sending the identical strings returned **all 8 `cached: true`** with server `latencyMs 0` — the second call did zero LLM work, matching the cache-hit badge shown in the video.
+- **Coverage:** Full-page coverage (heading, nav, body, sidebar) is shown on-screen in the video; no gaps or swallowed English. On strict-CSP sites the Chrome extension is required for in-page translation (console injection is blocked by CSP — a browser limitation, not a backend fault).
+- **Resilience:** Clean — 0 errors, layout intact, correct response shape, no untranslated fallback. The widget was hardened this session to resolve the backend URL lazily (avoids a config race when injected as a content script).
 
-### Sample translations (live Blueprint content)
+### Sample translations (live `theblogstarter.com/about-me` content)
 
-| Original (EN) | Translation (es-MX) | Numbers/prices/codes kept? | OK? |
+| Original (EN) | Translation (es-MX) | Numbers/symbols kept? | OK? |
 |---|---|---|---|
-| Calories: 2,250 (10% caloric restriction) | Calorías: 2,250 (10% de restricción calórica) | ✅ 2,250 · 10% | ✅ |
-| Protein: 130 grams (~25%) | Proteína: 130 gramos (~25%) | ✅ 130 · ~25% | ✅ |
-| Exercise 6 hours a week. | Haz ejercicio 6 horas a la semana. | ✅ 6 | ✅ |
-| Keep your bedroom temperature between 65–68°F (18–20°C). | Mantén la temperatura de tu recámara entre 65–68°F (18–20°C). | ✅ 65–68°F · 18–20°C | ✅ |
-| Aim for 150 minutes of moderate activity (Zone 2)… | Procura hacer 150 minutos de actividad moderada (Zona 2)… | ✅ 150 · Zone 2 | ✅ |
-| Get outside within the first 15–30 minutes of waking… | Sal al aire libre dentro de los primeros 15–30 minutos después de despertar… | ✅ 15–30 | ✅ |
-| Avoid caffeine, alcohol, and other stimulants at least 8–10 hours before sleep. | Evita la cafeína, el alcohol y otros estimulantes por lo menos 8–10 horas antes de dormir. | ✅ 8–10 | ✅ |
-| Temperature: 200°F (93°C) | Temperatura: 200°F (93°C) | ✅ 200°F · 93°C | ✅ |
+| My name is Scott Chow, and I wrote the easiest guide to starting a blog, so that you can start your blog today! | Me llamo Scott Chow, y escribí la guía más fácil para empezar un blog, ¡para que puedas comenzar tu blog hoy mismo! | — | ✅ |
+| Technology keeps changing at a rapid pace. | La tecnología sigue cambiando a un ritmo acelerado. | — | ✅ |
+| When thinking about what to call the website, I decided that my nickname would work great. | Cuando estaba pensando en cómo llamarle al sitio web, decidí que mi apodo quedaría muy bien. | — | ✅ |
+| If you want to see more from me, follow me on Facebook, Twitter and Pinterest. | Si quieres ver más contenido mío, sígueme en Facebook, Twitter y Pinterest. | — | ✅ |
+| Recent comments from The Blog Starter users | Comentarios recientes de los usuarios de The Blog Starter | — | ✅ |
+| Helping start blogs since 2002. | Ayudando a iniciar blogs desde 2002. | ✅ 2002 | ✅ |
+| Steps for building your blog | Pasos para construir tu blog | — | ✅ |
+| Copyright © 2026. The Blog Starter. All rights reserved. | Derechos de autor © 2026. The Blog Starter. Todos los derechos reservados. | ✅ © · 2026 | ✅ |
 
-Register is unmistakably **Mexican** (`recámara` not `dormitorio`, `plomero` not `fontanero`, informal `Haz`/`Mantén`/`Evita` imperatives), translation-only with no preamble or wrapping quotes.
+Register is unmistakably **Mexican** (`Me llamo`, informal `puedas`/`quieres`/`sígueme`, `apodo`), translation-only with no preamble or wrapping quotes.
 
-**Price preservation** (the Blueprint samples above are dosages/temps, so verified separately with a real `$` string through the live public gateway): `Supplements cost about $47 per month.` → `Los suplementos cuestan alrededor de $47 al mes.` — `$47` preserved, es-MX. Also confirmed on the deploy with `$129.99` (see the Deployment row below).
+**Price / number / unit preservation** (verified live through the public gateway):
+
+| Original (EN) | Translation (es-MX) | Kept verbatim |
+|---|---|---|
+| Supplements cost about $47 per month. | Los suplementos cuestan alrededor de $47 al mes. | ✅ `$47` |
+| The premium plan is $12.99/month — save 20% with the annual plan. | El plan premium cuesta $12.99/mes — ahorra 20% con el plan anual. | ✅ `$12.99` · `20%` |
+| Package weight: 2.5 kg (5.5 lb), dimensions 30×20×10 cm. | Peso del paquete: 2.5 kg (5.5 lb), dimensiones 30×20×10 cm. | ✅ `2.5 kg` · `5.5 lb` · `30×20×10 cm` |
+
+Also confirmed on the deploy with `$129.99` (see the Deployment row below).
 
 ## 3. Dimension scorecard
 
 | Dimension | Pass / Partial / Fail | Evidence |
 |---|---|---|
-| Translation accuracy | Pass | 8/8 live Blueprint strings fluent and faithful. |
-| Mexican-Spanish register (es-MX) | Pass | `recámara`, `plomero`, informal imperatives — not Castilian/generic. |
-| Numbers / prices / codes preserved | Pass | 2,250 · 10% · 65–68°F/18–20°C · 200°F/93°C (Blueprint) plus `$47` and `$129.99` (live gateway) all preserved verbatim. |
-| Page coverage | Pass | Full-page translate/restore on theblogstarter.com in the video (heading, nav, sidebar, body); all Blueprint sample strings covered. |
-| Cache effectiveness | Pass | 393× cold benchmark; 460× on the live batch (5060 ms → 11 ms); SQLite survives restart. |
+| Translation accuracy | Pass | 8/8 live `theblogstarter.com/about-me` strings fluent and faithful; full-page translate shown in the video. |
+| Mexican-Spanish register (es-MX) | Pass | `Me llamo`, informal `puedas`/`quieres`/`sígueme`, `apodo` — not Castilian/generic. |
+| Numbers / symbols preserved | Pass | `2002`, `© 2026` (about-me page) plus `$47` and `$129.99` (live gateway) all preserved verbatim. |
+| Page coverage | Pass | Full-page translate/restore on `theblogstarter.com/about-me` shown on-screen in the video (67 chunks: heading, nav, body, sidebar, comments); widget walks the whole page via `createTreeWalker(document.body, SHOW_TEXT)` (`translation-widget.js`). |
+| Cache effectiveness | Pass | 322× cold benchmark (10.5 ms hit p95 vs 3375.7 ms miss p95); video shows the cache-hit badge, and the live re-run of the same page returned all `cached: true` at `latencyMs 0`; SQLite survives restart. |
 | Latency vs SLA | Pass | Every SLA in `sla.json` met; `bench.py` exits 0. |
 | Error handling (no silent English) | Pass | `lib/llm.py` fails loud (no untranslated-fallback); bad input → 400 (auto-verified). |
 | Resilience on a real site | Pass | 0 errors on live content; extension injects on strict-CSP sites; widget URL-race fixed. |

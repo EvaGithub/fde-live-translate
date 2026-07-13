@@ -1,0 +1,53 @@
+{
+  "test": "Live on-page test — theblogstarter.com/about-me (same page as demo.mp4)",
+  "source_page": "https://www.theblogstarter.com/about-me/",
+  "endpoint": "POST https://fde-live-translate-gateway.fly.dev/translate/batch",
+  "target": "es-MX",
+  "date": "2026-07-14",
+  "warm_all_cached_true": true,
+  "warm_latencyMs": 0,
+  "pairs": [
+    {
+      "en": "My name is Scott Chow, and I wrote the easiest guide to starting a blog, so that you can start your blog today!",
+      "es_mx": "Me llamo Scott Chow, y escribí la guía más fácil para empezar un blog, ¡para que puedas comenzar tu blog hoy mismo!"
+    },
+    {
+      "en": "Technology keeps changing at a rapid pace.",
+      "es_mx": "La tecnología sigue cambiando a un ritmo acelerado."
+    },
+    {
+      "en": "When thinking about what to call the website, I decided that my nickname would work great.",
+      "es_mx": "Cuando estaba pensando en cómo llamarle al sitio web, decidí que mi apodo quedaría muy bien."
+    },
+    {
+      "en": "If you want to see more from me, follow me on Facebook, Twitter and Pinterest.",
+      "es_mx": "Si quieres ver más contenido mío, sígueme en Facebook, Twitter y Pinterest."
+    },
+    {
+      "en": "Recent comments from The Blog Starter users",
+      "es_mx": "Comentarios recientes de los usuarios de The Blog Starter"
+    },
+    {
+      "en": "Helping start blogs since 2002.",
+      "es_mx": "Ayudando a iniciar blogs desde 2002."
+    },
+    {
+      "en": "Steps for building your blog",
+      "es_mx": "Pasos para construir tu blog"
+    },
+    {
+      "en": "Copyright © 2026. The Blog Starter. All rights reserved.",
+      "es_mx": "Derechos de autor © 2026. The Blog Starter. Todos los derechos reservados."
+    }
+  ],
+  "additional_number_checks": [
+    {
+      "en": "The premium plan is $12.99/month — save 20% with the annual plan.",
+      "es_mx": "El plan premium cuesta $12.99/mes — ahorra 20% con el plan anual."
+    },
+    {
+      "en": "Package weight: 2.5 kg (5.5 lb), dimensions 30×20×10 cm.",
+      "es_mx": "Peso del paquete: 2.5 kg (5.5 lb), dimensiones 30×20×10 cm."
+    }
+  ]
+}
