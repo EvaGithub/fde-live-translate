@@ -24,9 +24,9 @@
   },
   "evidence": {
     "sample_translation": "¡Buenos días, bienvenido!",
-    "cache_first_ms": 2670,
+    "cache_first_ms": 0,
     "cache_second_ms": 0,
-    "bench_tail": "    cost per MISS (avg)         $0.000000\n    @ 500,000/mo, no cache      $0.00\n    @ 500,000/mo, cached        $0.00\n    monthly savings from cache  $0.00\n── SLA GATE ────────────────────────────────────────\n    PASS  cache_hit_p95_ms         3.3 <= 60\n    PASS  cache_miss_p95_ms        0.0 <= 3500\n    PASS  min_cache_hit_rate_pct   100.0 >= 60\n    PASS  max_error_rate_pct       0.0 <= 1.0\n    PASS  min_throughput_rps       3274.6 >= 20\n\n✅ ALL SLAs MET\n\nWrote /Users/evalb/FDE . Assigment 1/eval/_bench.json",
+    "bench_tail": "    cost per MISS (avg)         $0.000000\n    @ 500,000/mo, no cache      $0.00\n    @ 500,000/mo, cached        $0.00\n    monthly savings from cache  $0.00\n── SLA GATE ────────────────────────────────────────\n    PASS  cache_hit_p95_ms         2.6 <= 60\n    PASS  cache_miss_p95_ms        0.0 <= 3500\n    PASS  min_cache_hit_rate_pct   100.0 >= 60\n    PASS  max_error_rate_pct       0.0 <= 1.0\n    PASS  min_throughput_rps       3563.2 >= 20\n\n✅ ALL SLAs MET\n\nWrote /Users/evalb/FDE . Assigment 1/eval/_bench.json",
     "bench_metrics": {
       "target": "http://localhost:8787",
       "rounds": 4,
@@ -34,12 +34,12 @@
       "latency": {
         "miss_p50": 0.0,
         "miss_p95": 0.0,
-        "hit_p50": 2.079853999930492,
-        "hit_p95": 3.2509812499483814
+        "hit_p50": 1.938999999765656,
+        "hit_p95": 2.5758639493687947
       },
       "hit_rate_pct": 100.0,
       "error_rate_pct": 0.0,
-      "throughput_rps": 3274.6472878873346,
+      "throughput_rps": 3563.1656327724577,
       "cost": {
         "per_miss_usd": 0.0,
         "monthly_no_cache_usd": 0.0,
@@ -51,7 +51,7 @@
     "trace_correlated": true,
     "hygiene_flags": [],
     "provided_files_changed": "",
-    "deploy_url": null,
-    "deploy_health_ok": null
+    "deploy_url": "https://fde-live-translate-gateway.fly.dev",
+    "deploy_health_ok": true
   }
 }

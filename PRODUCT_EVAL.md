@@ -4,11 +4,11 @@
 - **Date:** 2026-07-13
 - **Video demo:** demo.mp4
 - **LLM provider / model:** Anthropic Claude — `claude-sonnet-5`
-- **Backend target:** local (`http://localhost:8787` gateway → private AI service `:8000`). **Public Fly.io deploy is currently offline — see Verdict.**
+- **Backend target:** rubric + benchmark run against local (`http://localhost:8787` gateway → private AI service `:8000`); **public deploy verified live** at `https://fde-live-translate-gateway.fly.dev` (auto-checked, `deploy_health_ok: true`).
 
 ## Verdict
 
-> This is a genuinely shippable Live Translate backend with a production-shaped topology: a public Node gateway is the only internet-facing surface, and the Python AI service, API key, model, and two-tier cache sit behind it privately. Run end-to-end against real third-party content, it performs well — natural **Mexican Spanish** (idiomatic `recámara`, `plomero`, `Haz ejercicio`), every number/price/unit preserved, a genuine cold-cache benchmark showing a **393× hit/miss speedup** and **~$59.51/mo saved** at 500k requests, 0 errors, all SLAs met, and request-ID tracing that is greppable end-to-end across both services. The **one blocking gap is deployment**: the Fly.io trial has ended, so both apps (`fde-live-translate-gateway`, `fde-live-translate-ai`) are currently down and the extension cannot reach a public URL. The code, architecture, and local behavior are submission-ready; the live public deploy must be restored before this fully meets the "Deployed on Fly.io" deliverable.
+> This is a genuinely shippable Live Translate backend with a production-shaped topology: a public Node gateway is the only internet-facing surface, and the Python AI service, API key, model, and two-tier cache sit behind it privately. Run end-to-end against real third-party content, it performs well — natural **Mexican Spanish** (idiomatic `recámara`, `plomero`, `Haz ejercicio`), every number/price/unit preserved, a genuine cold-cache benchmark showing a **393× hit/miss speedup** and **~$59.51/mo saved** at 500k requests, 0 errors, all SLAs met, and request-ID tracing that is greppable end-to-end across both services. Both services are **deployed and live on Fly.io** — the public gateway `/health` nests the private AI service, and a real translate through the public URL preserves numbers and prices in es-MX. The machines auto-stop when idle and auto-wake on first request (~3-5s cold start), so the deploy runs cost-efficiently while staying reachable. Submission-ready across every dimension.
 
 **Rubric score (from `eval/report.json`):** 70 / 70 auto (+ 30 manual)
 
@@ -63,12 +63,14 @@ Register is unmistakably **Mexican** (`recámara` not `dormitorio`, `plomero` no
 | Error handling (no silent English) | Pass | `lib/llm.py` fails loud (no untranslated-fallback); bad input → 400 (auto-verified). |
 | Resilience on a real site | Pass | 0 errors on live content; extension injects on strict-CSP sites; widget URL-race fixed. |
 | UX polish | Pass | One-click translate/restore, cache-hit badge; backend hint now refreshes on panel open. |
-| **Deployment (Fly.io public URL)** | **Fail (currently)** | **Fly.io trial ended — both apps offline; extension cannot reach a public gateway right now.** |
+| Deployment (Fly.io public URL) | Pass | Both services live on Fly.io; public gateway `/health` nests AI; live translate via public URL → `El taladro sin cable cuesta $129.99 en el pasillo 7.` ($129.99 preserved, es-MX). `deploy_health_ok: true`. |
 
 Also verified this session: **trace correlation** — an injected `X-Request-Id` (`eval-trace-4576aa`) appeared in **both** the gateway log (`POST /translate 200 1941ms`) and the AI-service log (`request_id`), greppable end-to-end. No secrets, `*.db`, or `*.log` are tracked in git.
 
 ## 4. Top fixes before shipping
 
-1. **Restore the Fly.io deployment (blocking).** The trial ended, so `fde-live-translate-gateway` and `fde-live-translate-ai` are down. Add a payment method and `fly deploy` both; confirm the public gateway `/health` responds and the extension works against the public URL — this is a required deliverable and is the only Fail above.
-2. **Re-point + re-test the extension against the public gateway** once redeployed. The widget now resolves `API_URL` lazily, so confirm `FDE_CONFIG.API_URL` = the public `.fly.dev` gateway and re-run a live-site translate.
-3. **Align the cost-model label.** `benchmark/sla.json` prices against `claude-sonnet-4-6` while the service actually serves `claude-sonnet-5`; update the label so the reported $/mo matches the model in production.
+No blocking gaps — all dimensions Pass. Minor polish:
+
+1. **Align the cost-model label.** `benchmark/sla.json` prices against `claude-sonnet-4-6` while the service actually serves `claude-sonnet-5`; update the label so the reported $/mo matches the model in production.
+2. **First-request cold start (~3-5s).** Fly machines auto-stop when idle; the first translate after a quiet period cold-starts them. Acceptable for grading; if a warm demo matters, keep `min_machines_running: 1` on the gateway.
+3. **Set the extension's saved backend URL to the public gateway** (`https://fde-live-translate-gateway.fly.dev`) before demoing, so the on-page test exercises the deploy rather than localhost.

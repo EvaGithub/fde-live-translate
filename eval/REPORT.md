@@ -20,11 +20,11 @@
 ## Evidence
 
 - Sample translation (`Good morning, welcome!`): **¡Buenos días, bienvenido!**
-- Cache latency: first `2670 ms` → second `0 ms`
+- Cache latency: first `0 ms` → second `0 ms`
 - Trace correlation (one request across both logs): ✅ yes
-- Benchmark: hit p95 `3 ms`, miss p95 `0 ms`, hit rate `100%`, throughput `3275 rps`, SLA **PASS**
+- Benchmark: hit p95 `3 ms`, miss p95 `0 ms`, hit rate `100%`, throughput `3563 rps`, SLA **PASS**
 - Cost: `$0.000000`/miss; monthly savings from cache `$0.00`
-- Deploy: _(no --deploy-url given; grader verifies your Fly.io URL from README/video)_
+- Deploy: `https://fde-live-translate-gateway.fly.dev/health` → ✅ ok
 
 <details><summary>Benchmark output</summary>
 
@@ -34,11 +34,11 @@
     @ 500,000/mo, cached        $0.00
     monthly savings from cache  $0.00
 ── SLA GATE ────────────────────────────────────────
-    PASS  cache_hit_p95_ms         3.3 <= 60
+    PASS  cache_hit_p95_ms         2.6 <= 60
     PASS  cache_miss_p95_ms        0.0 <= 3500
     PASS  min_cache_hit_rate_pct   100.0 >= 60
     PASS  max_error_rate_pct       0.0 <= 1.0
-    PASS  min_throughput_rps       3274.6 >= 20
+    PASS  min_throughput_rps       3563.2 >= 20
 
 ✅ ALL SLAs MET
 
