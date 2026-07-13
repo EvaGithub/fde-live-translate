@@ -50,6 +50,8 @@
 
 Register is unmistakably **Mexican** (`recámara` not `dormitorio`, `plomero` not `fontanero`, informal `Haz`/`Mantén`/`Evita` imperatives), translation-only with no preamble or wrapping quotes.
 
+**Price preservation** (the Blueprint samples above are dosages/temps, so verified separately with a real `$` string through the live public gateway): `Supplements cost about $47 per month.` → `Los suplementos cuestan alrededor de $47 al mes.` — `$47` preserved, es-MX. Also confirmed on the deploy with `$129.99` (see the Deployment row below).
+
 ## 3. Dimension scorecard
 
 | Dimension | Pass / Partial / Fail | Evidence |
@@ -71,6 +73,5 @@ Also verified this session: **trace correlation** — an injected `X-Request-Id`
 
 No blocking gaps — all dimensions Pass. Minor notes:
 
-1. ~~Align the cost-model label.~~ **Fixed** — `benchmark/sla.json` now labels the cost model `claude-sonnet-5` to match the model in production. The prices (`$3/$15` per MTok) were already correct for Sonnet 5, so the reported $/mo figures are unchanged.
-2. **First-request cold start (~3-5s).** Fly machines auto-stop when idle to save cost; the first translate after a quiet period cold-starts them. Acceptable for grading; if a warm demo matters, set `min_machines_running: 1` on the gateway.
-3. **Extension backend URL.** The extension's saved backend URL is set to the public gateway (`https://fde-live-translate-gateway.fly.dev`) — confirm this before any future demo so the on-page test exercises the deploy rather than localhost.
+1. **First-request cold start (~3-5s).** Fly machines auto-stop when idle to save cost; the first translate after a quiet period cold-starts them. Acceptable for grading; if a warm demo matters, set `min_machines_running: 1` on the gateway.
+2. **Extension backend URL.** The extension's saved backend URL is set to the public gateway (`https://fde-live-translate-gateway.fly.dev`) — confirm this before any future demo so the on-page test exercises the deploy rather than localhost.
