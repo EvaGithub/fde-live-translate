@@ -69,8 +69,8 @@ Also verified this session: **trace correlation** — an injected `X-Request-Id`
 
 ## 4. Top fixes before shipping
 
-No blocking gaps — all dimensions Pass. Minor polish:
+No blocking gaps — all dimensions Pass. Minor notes:
 
-1. **Align the cost-model label.** `benchmark/sla.json` prices against `claude-sonnet-4-6` while the service actually serves `claude-sonnet-5`; update the label so the reported $/mo matches the model in production.
-2. **First-request cold start (~3-5s).** Fly machines auto-stop when idle; the first translate after a quiet period cold-starts them. Acceptable for grading; if a warm demo matters, keep `min_machines_running: 1` on the gateway.
-3. **Set the extension's saved backend URL to the public gateway** (`https://fde-live-translate-gateway.fly.dev`) before demoing, so the on-page test exercises the deploy rather than localhost.
+1. ~~Align the cost-model label.~~ **Fixed** — `benchmark/sla.json` now labels the cost model `claude-sonnet-5` to match the model in production. The prices (`$3/$15` per MTok) were already correct for Sonnet 5, so the reported $/mo figures are unchanged.
+2. **First-request cold start (~3-5s).** Fly machines auto-stop when idle to save cost; the first translate after a quiet period cold-starts them. Acceptable for grading; if a warm demo matters, set `min_machines_running: 1` on the gateway.
+3. **Extension backend URL.** The extension's saved backend URL is set to the public gateway (`https://fde-live-translate-gateway.fly.dev`) — confirm this before any future demo so the on-page test exercises the deploy rather than localhost.
